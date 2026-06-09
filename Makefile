@@ -11,7 +11,7 @@ OBJDUMP = $(CROSS_COMPILE)objdump
 CFLAGS  = -Wall -Werror -O2 -g -nostdlib -nostartfiles -ffreestanding -I.
 ASFLAGS = -Wall -g -nostdlib -ffreestanding -I.
 
-OBJS = start.o main.o
+OBJS = start.o main.o mm.o
 
 all: my_hypervisor.elf my_hypervisor.bin
 

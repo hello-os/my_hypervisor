@@ -1,6 +1,8 @@
 /* main.c for my_hypervisor */
 
 /* QEMU virt machine PL011 UART Base Address */
+#include "mm.h"
+
 #define PL011_UART_BASE 0x09000000
 
 static void uart_putc(char c)
@@ -62,7 +64,10 @@ int main(unsigned long r0, unsigned long r1, unsigned long r2, unsigned long r3)
     print_hex(r3);
     uart_puts("\n");
 
-    uart_puts("\nSystem initialized. Entering hypervisor main loop...\n");
+    mm_init(); /* Initialize memory manager and build identity page tables */
+    enable_mmu_el2(); /* Enable MMU and caches */
+
+    uart_puts("\nSystem initialized. MMU enabled. Entering hypervisor main loop...\n");
 
     while (1) {
         /* Hypervisor loop */
