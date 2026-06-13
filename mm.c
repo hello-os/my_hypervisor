@@ -56,6 +56,8 @@ static void mm_print_hex(unsigned long val)
     }
 }
 
+#include "irq.h"
+
 /* Page Allocator implementation */
 void *alloc_page(void)
 {
@@ -176,8 +178,12 @@ void mm_init(void)
      */
     map_page(PL011_UART_BASE, PL011_UART_BASE, MAP_DEVICE);
 
+    /* 2. Map GIC registers (Device memory) - 0x08000000 to 0x08020000 (roughly 128KB) */
+    map_page(GICD_BASE, GICD_BASE, MAP_DEVICE);
+    map_page(GICC_BASE, GICC_BASE, MAP_DEVICE);
+
     /*
-     * 2. Map entire RAM range (Normal Memory) - 0x40000000 to 0x48000000
+     * 3. Map entire RAM range (Normal Memory) - 0x40000000 to 0x48000000
      */
     unsigned long addr = RAM_START;
     while (addr < RAM_END) {
@@ -185,7 +191,7 @@ void mm_init(void)
         addr += PAGE_SIZE;
     }
 
-    mm_uart_puts("[MM] Identity mapping created for Device (0x09000000) and RAM (0x40000000-0x48000000).\n");
+    mm_uart_puts("[MM] Identity mapping created for UART, GIC, and RAM.\n");
 }
 
 /* Configure TCR, MAIR, TTBR, and Enable MMU at EL2 */

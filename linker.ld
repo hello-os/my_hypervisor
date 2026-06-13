@@ -13,6 +13,12 @@ SECTIONS
         *(.text .text.*)
     }
 
+    /* Ensure the vector table is aligned */
+    . = ALIGN(0x800);
+    .vectors : {
+        *(.vectors)
+    }
+
     .rodata : {
         *(.rodata .rodata.*)
     }

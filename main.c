@@ -2,17 +2,20 @@
 
 /* QEMU virt machine PL011 UART Base Address */
 #include "mm.h"
+#include "irq.h"
+#include "vmm_heap.h"
+#include "dt_parser.h"
 
 #define PL011_UART_BASE 0x09000000
 
-static void uart_putc(char c)
+void uart_putc(char c)
 {
     volatile unsigned int *uart = (volatile unsigned int *)PL011_UART_BASE;
     /* Wait if transmit FIFO is full (simplified for emulation, QEMU is usually ready) */
     *uart = c;
 }
 
-static void uart_puts(const char *s)
+void uart_puts(const char *s)
 {
     while (*s) {
         if (*s == '\n') {
@@ -22,7 +25,7 @@ static void uart_puts(const char *s)
     }
 }
 
-static void print_hex(unsigned long val)
+void print_hex(unsigned long val)
 {
     char hex_chars[] = "0123456789ABCDEF";
     uart_puts("0x");
@@ -30,6 +33,8 @@ static void print_hex(unsigned long val)
         uart_putc(hex_chars[(val >> i) & 0xf]);
     }
 }
+
+unsigned long __hcr_el2_val = (1 << 31) | (1 << 27); /* RW, HCR_EL2.VM */
 
 int main(unsigned long r0, unsigned long r1, unsigned long r2, unsigned long r3)
 {
@@ -67,7 +72,47 @@ int main(unsigned long r0, unsigned long r1, unsigned long r2, unsigned long r3)
     mm_init(); /* Initialize memory manager and build identity page tables */
     enable_mmu_el2(); /* Enable MMU and caches */
 
-    uart_puts("\nSystem initialized. MMU enabled. Entering hypervisor main loop...\n");
+    irq_init(); /* Initialize GIC and timer */
+    irq_enable(); /* Enable global IRQ interrupts */
+
+    uart_puts("\nSystem initialized. MMU enabled. Initializing Heap...\n");
+    
+    /* 1MB heap at 0x41000000 */
+    vmm_heap_init((void *)0x41000000, 1024 * 1024);
+    uart_puts("[Heap] Initialized at 0x41000000 (1MB)\n");
+
+    /* Test malloc & free */
+    void *ptr1 = vmm_malloc(100);
+    uart_puts("[Heap] vmm_malloc(100) returned: ");
+    print_hex((unsigned long)ptr1);
+    uart_puts("\n");
+
+    void *ptr2 = vmm_malloc(200);
+    uart_puts("[Heap] vmm_malloc(200) returned: ");
+    print_hex((unsigned long)ptr2);
+    uart_puts("\n");
+
+    vmm_free(ptr1);
+    uart_puts("[Heap] vmm_free(ptr1) done.\n");
+
+    void *ptr3 = vmm_malloc(50);
+    uart_puts("[Heap] vmm_malloc(50) returned: ");
+    print_hex((unsigned long)ptr3);
+    uart_puts("\n");
+
+    vmm_free(ptr2);
+    vmm_free(ptr3);
+
+    /* Initialize DT parser */
+    uart_puts("\n[DT] Initializing DTB Parser...\n");
+    dt_init((void *)r0);
+    uart_puts("[DT] Parser initialized.\n");
+
+    /* Start interactive shell */
+    #include "vmm_shell.h"
+    shell_loop();
+
+    uart_puts("\nEntering hypervisor main loop...\n");
 
     while (1) {
         /* Hypervisor loop */
